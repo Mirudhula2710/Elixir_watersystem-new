@@ -8,7 +8,7 @@ import os
 
 def create_app():
     app = Flask(__name__)
-    app.config['SECRET_KEY'] = 'dev-secret-key'
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
     
     # D17: Environment switch for DB_BACKEND
     db_backend = os.environ.get('DB_BACKEND', 'sqlite').lower()
@@ -23,8 +23,11 @@ def create_app():
         db_pass = urllib.parse.quote_plus(raw_pass)
         app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
     else:
-        # Default SQLite mode
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///water_app.db?timeout=15'
+        # Default SQLite mode with WAL and 30s busy timeout
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///water_app.db'
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'connect_args': {'timeout': 30}
+        }
         
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
@@ -32,6 +35,18 @@ def create_app():
     app.config['SQLALCHEMY_BINDS'] = {
         'auth': 'sqlite:///users.db'
     }
+
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+    import sqlite3
+
+    @event.listens_for(Engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        if isinstance(dbapi_connection, sqlite3.Connection):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.execute("PRAGMA synchronous=NORMAL;")
+            cursor.close()
 
     db.init_app(app)
 
@@ -49,7 +64,14 @@ def create_app():
 
     @app.route('/')
     def index():
-        return redirect(url_for('auth.login'))
+        if current_user.is_authenticated:
+            if current_user.role == 'manager':
+                return redirect(url_for('manager_dashboard'))
+            elif current_user.role == 'worker':
+                return redirect(url_for('worker_dashboard'))
+            elif current_user.role == 'student':
+                return redirect(url_for('student_dashboard'))
+        return render_template('opening.html')
 
     @app.route('/manager')
     @login_required
@@ -66,9 +88,8 @@ def create_app():
     
     @app.route('/auto_assign', methods=['POST'])
     @login_required
+    @role_required('manager')
     def auto_assign():
-        if current_user.role != 'manager':
-            return "Unauthorized", 403
         unassigned_tickets = Ticket.query.filter_by(assigned_worker_id=None).order_by(Ticket.created_at.desc()).limit(10).all()
         workers = User.query.filter_by(role='worker').all()
         if workers and unassigned_tickets:
@@ -131,15 +152,26 @@ def create_app():
     @login_required
     @role_required('student')
     def student_dashboard():
+        allowed_blocks = ['SRM ARTS', 'SRM TRP', 'SRM IST', 'TWIN TOWER', 'BASIL RESTUARANT', 'AMBIS CAFE', 'SRM MEDICAL COLLEGE']
+        for b_name in allowed_blocks:
+            if not Zone.query.filter_by(name=b_name).first():
+                db.session.add(Zone(name=b_name))
+        db.session.commit()
+
         if request.method == 'POST':
             zone_id = request.form.get('zone_id')
             description = request.form.get('description')
             complaint = Complaint(student_id=current_user.id, zone_id=zone_id, description=description)
             db.session.add(complaint)
+            db.session.flush()
+            
+            # Create unassigned ticket so manager can assign it to a worker
+            ticket = Ticket(complaint_id=complaint.id, zone_id=zone_id, assigned_worker_id=None, status='unassigned')
+            db.session.add(ticket)
             db.session.commit()
             
         complaints = Complaint.query.filter_by(student_id=current_user.id).order_by(Complaint.created_at.desc()).all()
-        zones = Zone.query.all()
+        zones = Zone.query.filter(Zone.name.in_(allowed_blocks)).all()
         return render_template('student.html', complaints=complaints, zones=zones)
 
     @app.route('/auto_assign_complaint/<int:complaint_id>', methods=['POST'])
@@ -151,29 +183,67 @@ def create_app():
         if complaint and workers:
             import random
             worker = random.choice(workers)
-            ticket = Ticket(
-                complaint_id=complaint.id,
-                zone_id=complaint.zone_id,
-                assigned_worker_id=worker.id,
-                status='assigned'
-            )
+            ticket = Ticket.query.filter_by(complaint_id=complaint.id).first()
+            if not ticket:
+                ticket = Ticket(
+                    complaint_id=complaint.id,
+                    zone_id=complaint.zone_id,
+                    assigned_worker_id=worker.id,
+                    status='assigned'
+                )
+                db.session.add(ticket)
+            else:
+                ticket.assigned_worker_id = worker.id
+                ticket.status = 'assigned'
+                
             complaint.status = 'in_progress'
-            db.session.add(ticket)
             db.session.commit()
         return redirect(url_for('manager_dashboard') + '#tab-complaints')
 
-    @app.route('/assign_ticket', methods=['POST'])
+    @app.route('/manual_assign_complaint/<int:complaint_id>', methods=['POST'])
     @login_required
     @role_required('manager')
-    def assign_ticket():
-        ticket_id = request.form.get('ticket_id')
+    def manual_assign_complaint(complaint_id):
+        worker_id = request.form.get('worker_id')
+        complaint = Complaint.query.get(complaint_id)
+        if complaint and worker_id and worker_id.strip():
+            w_id = int(worker_id)
+            ticket = Ticket.query.filter_by(complaint_id=complaint.id).first()
+            if not ticket:
+                ticket = Ticket(
+                    complaint_id=complaint.id,
+                    zone_id=complaint.zone_id,
+                    assigned_worker_id=w_id,
+                    status='assigned'
+                )
+                db.session.add(ticket)
+            else:
+                ticket.assigned_worker_id = w_id
+                ticket.status = 'assigned'
+                
+            complaint.status = 'in_progress'
+            db.session.commit()
+        return redirect(url_for('manager_dashboard') + '#tab-complaints')
+
+    @app.route('/assign_ticket/<int:ticket_id>', methods=['POST'])
+    @login_required
+    @role_required('manager')
+    def assign_ticket(ticket_id):
         worker_id = request.form.get('worker_id')
         ticket = Ticket.query.get(ticket_id)
         if ticket:
-            ticket.assigned_worker_id = worker_id
-            ticket.status = 'assigned'
-            db.session.commit()()
-        return redirect(url_for('manager_dashboard'))
+            if worker_id and worker_id.strip():
+                ticket.assigned_worker_id = int(worker_id)
+                ticket.status = 'assigned'
+                if ticket.complaint:
+                    ticket.complaint.status = 'in_progress'
+            else:
+                ticket.assigned_worker_id = None
+                ticket.status = 'unassigned'
+                if ticket.complaint:
+                    ticket.complaint.status = 'open'
+            db.session.commit()
+        return redirect(url_for('manager_dashboard') + '#tab-tickets')
 
     return app
 

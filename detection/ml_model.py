@@ -2,8 +2,13 @@ import json
 import joblib
 import os
 import pandas as pd
-import sklearn
 import logging
+
+try:
+    import sklearn
+except Exception as e:
+    sklearn = None
+    logging.warning(f"sklearn import failed: {e}")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ARTIFACTS_DIR = os.path.join(BASE_DIR, 'model_artifacts')
@@ -13,13 +18,16 @@ _metadata = None
 
 def load_model():
     global _model, _metadata
+    if sklearn is None:
+        _model = None
+        return
     try:
         with open(os.path.join(ARTIFACTS_DIR, 'model_metadata.json'), 'r') as f:
             _metadata = json.load(f)
             
         model_version = _metadata.get('sklearn_version')
-        if model_version and model_version != sklearn.__version__:
-            logging.warning(f"WARNING: scikit-learn version mismatch! Model was trained with {model_version}, current is {sklearn.__version__}. This may cause unpickling errors or degraded performance.")
+        if model_version and hasattr(sklearn, '__version__') and model_version != sklearn.__version__:
+            logging.warning(f"WARNING: scikit-learn version mismatch! Model was trained with {model_version}, current is {sklearn.__version__}.")
             
         _model = joblib.load(os.path.join(ARTIFACTS_DIR, 'severity_model.pkl'))
     except Exception as e:

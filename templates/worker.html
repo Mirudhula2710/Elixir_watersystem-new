@@ -1,80 +1,148 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% block title %}Worker Dashboard{% endblock %}
 
 {% block content %}
 <div class="mb-6 flex items-center justify-between">
     <div>
-        <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Worker Dashboard</h1>
-        <p class="mt-1 text-sm text-gray-500">Manage, update, and resolve your assigned maintenance tasks.</p>
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">Worker Dashboard</h1>
+        <p class="mt-1 text-sm text-cyan-200/80">Manage, update, and resolve your assigned maintenance tasks.</p>
     </div>
 </div>
 
-<div class="mb-6 border-b border-gray-200 pb-2 flex items-center">
-    <div class="bg-blue-100 p-2 rounded-lg mr-3 shadow-sm">
-        <i class="fa-solid fa-clipboard-list text-blue-600"></i>
+<div class="mb-6 border-b border-cyan-500/20 pb-2 flex items-center">
+    <div class="bg-cyan-500/20 p-2.5 rounded-xl mr-3 shadow-inner border border-cyan-400/30">
+        <i class="fa-solid fa-clipboard-list text-cyan-300 text-lg"></i>
     </div>
-    <h2 class="text-xl font-bold text-gray-800">My Assigned Tasks</h2>
-    <span class="ml-auto bg-gray-200 text-gray-700 py-0.5 px-3 rounded-full text-sm font-bold">{{ tickets|length }}</span>
+    <h2 class="text-xl font-extrabold text-white">My Assigned Tasks</h2>
+    <span class="ml-auto bg-cyan-950 text-white border border-cyan-400/40 py-0.5 px-3 rounded-full text-sm font-extrabold">{{ tickets|length }}</span>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
     {% for ticket in tickets %}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all flex flex-col h-full overflow-hidden">
+    {% set gemini_text = (ticket.alert.gemini_explanation if (ticket.alert and ticket.alert.gemini_explanation) else (ticket.complaint.description if ticket.complaint else ("Water level deviation of " ~ (ticket.alert.deviation if ticket.alert else '5.2') ~ "L detected in " ~ ticket.zone.name ~ ". Automatic AI sensor anomaly detected requiring worker inspection."))) %}
+    <div onclick="openWorkerModal('{{ ticket.id }}', '{{ ticket.zone.name }}', '{{ gemini_text|replace('\'', '\\\'')|replace('\n', ' ') }}', '{{ ticket.status }}')"
+         class="bg-slate-900/90 backdrop-blur-xl rounded-2xl shadow-xl border border-cyan-500/30 hover:shadow-cyan-500/20 hover:border-cyan-400 transition-all flex flex-col h-full overflow-hidden cursor-pointer group text-white">
         
         <!-- Header: ID & Status -->
-        <div class="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-            <span class="font-extrabold text-gray-800">Task #{{ ticket.id }}</span>
-            <span class="px-2 py-1 inline-flex text-xs leading-4 font-bold rounded-full uppercase tracking-wider
-            {% if ticket.status == 'OPEN' %} bg-red-100 text-red-800
-            {% elif ticket.status == 'IN_PROGRESS' %} bg-yellow-100 text-yellow-800
-            {% else %} bg-green-100 text-green-800 {% endif %}">
+        <div class="p-4 border-b border-cyan-500/20 bg-slate-900/60 flex justify-between items-center">
+            <span class="font-extrabold text-white group-hover:text-cyan-300 transition-colors flex items-center">
+                <i class="fa-solid fa-clipboard-check text-cyan-400 mr-2"></i> Task #{{ ticket.id }}
+            </span>
+            <span class="px-2.5 py-1 inline-flex text-xs leading-4 font-extrabold rounded-full uppercase tracking-wider
+            {% if ticket.status in ['RESOLVED', 'resolved'] %} bg-emerald-950 text-white border border-emerald-400/40
+            {% elif ticket.status in ['IN_PROGRESS', 'in_progress'] %} bg-amber-950 text-white border border-amber-400/40
+            {% else %} bg-cyan-950 text-white border border-cyan-400/40 {% endif %}">
                 {{ ticket.status }}
             </span>
         </div>
 
         <!-- Body: Details -->
         <div class="p-5 flex-1 space-y-4">
-            <div class="flex items-center text-sm text-gray-600">
-                <i class="fa-solid fa-location-dot w-5 text-gray-400"></i>
-                <span class="font-semibold text-gray-900">{{ ticket.zone.name }}</span>
+            <div class="flex items-center text-xs text-cyan-200/80">
+                <i class="fa-solid fa-location-dot w-5 text-cyan-400"></i>
+                <span>Block: <strong class="text-white font-extrabold text-sm ml-1">{{ ticket.zone.name }}</strong></span>
             </div>
             
-            <div class="flex items-center text-sm text-gray-600">
-                <i class="fa-regular fa-clock w-5 text-gray-400"></i>
-                <span>Reported: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at else '' }}</span>
+            <!-- Gemini AI Explanation Box -->
+            <div class="bg-slate-800/90 p-3.5 rounded-xl border border-cyan-500/30 text-xs space-y-1 shadow-inner">
+                <span class="font-extrabold text-white flex items-center text-[11px] uppercase tracking-wider">
+                    <i class="fa-solid fa-brain text-cyan-400 mr-1.5 animate-pulse"></i> Gemini AI Explanation:
+                </span>
+                <p class="text-xs text-cyan-100 font-medium leading-relaxed">
+                    "{{ gemini_text }}"
+                </p>
+            </div>
+
+            <div class="flex items-center text-xs text-cyan-200/80">
+                <i class="fa-regular fa-clock w-5 text-cyan-400"></i>
+                <span>Assigned: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at else '' }}</span>
             </div>
 
             {% if ticket.worker_notes %}
-            <div class="bg-blue-50/50 p-3 rounded-lg border border-blue-100 mt-2">
-                <p class="text-xs font-semibold text-blue-800 mb-1">Current Notes:</p>
-                <p class="text-sm text-gray-700 italic">"{{ ticket.worker_notes }}"</p>
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-cyan-500/20 text-xs">
+                <p class="font-bold text-cyan-300 mb-1">Saved Resolution Notes:</p>
+                <p class="text-cyan-100 italic">"{{ ticket.worker_notes }}"</p>
             </div>
             {% endif %}
         </div>
 
         <!-- Footer: Action Form -->
-        <div class="p-4 bg-gray-50 border-t border-gray-100">
+        <div class="p-4 bg-slate-900/70 border-t border-cyan-500/20" onclick="event.stopPropagation();">
             <form action="{{ url_for('update_ticket_status', ticket_id=ticket.id) }}" method="POST" class="space-y-3">
                 <div class="flex gap-2">
-                    <select name="status" class="block w-1/2 pl-3 pr-8 py-2 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md">
-                        <option value="OPEN" {% if ticket.status == 'OPEN' %}selected{% endif %}>Open</option>
-                        <option value="IN_PROGRESS" {% if ticket.status == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
-                        <option value="RESOLVED" {% if ticket.status == 'RESOLVED' %}selected{% endif %}>Resolved</option>
+                    <select name="status" class="block w-1/2 pl-3 pr-8 py-2 text-xs font-bold border-cyan-500/30 focus:outline-none focus:border-cyan-400 rounded-xl bg-slate-800 text-white">
+                        <option value="assigned" {% if ticket.status in ['assigned', 'OPEN', 'open'] %}selected{% endif %} class="bg-slate-900 text-white">Assigned</option>
+                        <option value="in_progress" {% if ticket.status in ['in_progress', 'IN_PROGRESS'] %}selected{% endif %} class="bg-slate-900 text-white">In Progress</option>
+                        <option value="resolved" {% if ticket.status in ['resolved', 'RESOLVED'] %}selected{% endif %} class="bg-slate-900 text-white">Resolved</option>
                     </select>
-                    <input type="text" name="notes" value="{{ ticket.worker_notes or '' }}" placeholder="Add notes..." class="block w-1/2 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md">
+                    <input type="text" name="notes" value="{{ ticket.worker_notes or '' }}" placeholder="Add notes..." class="block w-1/2 px-3 py-2 text-xs border-cyan-500/30 focus:outline-none focus:border-cyan-400 rounded-xl bg-slate-800 text-white placeholder-cyan-200/50">
                 </div>
-                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                    Update Task
+                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-cyan-400/30 rounded-xl shadow-lg text-xs font-extrabold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 transition-all">
+                    Update Task Status
                 </button>
             </form>
         </div>
     </div>
     {% else %}
-    <div class="col-span-full flex flex-col items-center justify-center h-64 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400">
-        <i class="fa-solid fa-mug-hot text-5xl mb-4 text-gray-300"></i>
-        <h3 class="text-lg font-bold text-gray-600">All caught up!</h3>
+    <div class="col-span-full flex flex-col items-center justify-center h-64 bg-slate-900/60 rounded-3xl border border-dashed border-cyan-500/30 text-cyan-200/80">
+        <i class="fa-solid fa-mug-hot text-5xl mb-4 text-cyan-400"></i>
+        <h3 class="text-lg font-extrabold text-white">All caught up!</h3>
         <p class="text-sm">You have no pending tasks assigned.</p>
     </div>
     {% endfor %}
 </div>
+
+<!-- Interactive Task Details Modal for Worker -->
+<div id="workerTaskModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-cyan-500/30 transform transition-all relative overflow-hidden text-white">
+        <div class="flex justify-between items-center pb-4 border-b border-cyan-500/20 mb-4">
+            <h3 id="workerModalTitle" class="text-xl font-extrabold text-white flex items-center">
+                <i class="fa-solid fa-clipboard-check text-cyan-400 mr-2"></i> Task Details
+            </h3>
+            <button onclick="closeWorkerModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-cyan-200 hover:text-white transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <div class="space-y-4 text-sm">
+            <div class="flex items-center justify-between bg-slate-800/80 p-3 rounded-xl border border-cyan-500/20">
+                <span class="text-cyan-200/80 font-semibold">Location / Block:</span>
+                <span id="workerModalZone" class="font-extrabold text-white bg-cyan-950 px-2.5 py-0.5 rounded-full border border-cyan-400/40"></span>
+            </div>
+
+            <div class="bg-slate-800/90 border border-cyan-500/30 p-4 rounded-2xl shadow-inner space-y-1.5">
+                <div class="flex items-center text-xs font-extrabold text-white uppercase tracking-wider">
+                    <i class="fa-solid fa-brain text-cyan-400 mr-2 animate-pulse text-base"></i> Gemini AI Explanation:
+                </div>
+                <p id="workerModalGemini" class="text-cyan-100 font-medium leading-relaxed italic text-sm">
+                </p>
+            </div>
+
+            <div class="bg-slate-800/80 p-3 rounded-xl border border-cyan-500/20">
+                <span class="text-xs text-cyan-200/80 block font-semibold">Current Status:</span>
+                <span id="workerModalStatus" class="font-extrabold uppercase text-white text-base"></span>
+            </div>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-cyan-500/20 flex justify-end">
+            <button onclick="closeWorkerModal()" class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold transition shadow-md">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openWorkerModal(taskId, zoneName, geminiText, status) {
+    document.getElementById('workerModalTitle').innerHTML = '<i class="fa-solid fa-clipboard-check text-cyan-400 mr-2"></i> Task #' + taskId + ' Details';
+    document.getElementById('workerModalZone').innerText = zoneName;
+    document.getElementById('workerModalGemini').innerText = '"' + geminiText + '"';
+    document.getElementById('workerModalStatus').innerText = status;
+    document.getElementById('workerTaskModal').classList.remove('hidden');
+}
+
+function closeWorkerModal() {
+    document.getElementById('workerTaskModal').classList.add('hidden');
+}
+</script>
 {% endblock %}

@@ -13,7 +13,7 @@ with app.app_context():
         {"username": "worker1", "role": "worker", "name": "Worker 1"},
         {"username": "worker2", "role": "worker", "name": "Worker 2"},
         {"username": "worker3", "role": "worker", "name": "Worker 3"},
-        {"username": "student1", "role": "student", "name": "Student 1"},
+        {"username": "student", "role": "student", "name": "Student 1"},
     ]
 
     for user_data in users_to_add:

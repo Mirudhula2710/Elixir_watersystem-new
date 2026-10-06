@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex flex-col items-center justify-center relative text-center px-4">
+    <!-- Opening Splash Card -->
+    <div class="bg-slate-900/85 backdrop-blur-2xl border border-cyan-500/30 p-6 sm:p-10 rounded-3xl shadow-2xl max-w-2xl w-full transform transition-all duration-700 animate-fade-in relative overflow-hidden flex flex-col items-center">
+        
+        <!-- Glowing Ambient Lighting -->
+        <div class="absolute -top-24 -left-24 w-48 h-48 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <!-- Featured Image (Thiruvalluvar & Thirukkural) -->
+        <div class="relative mb-8 w-full flex justify-center items-center p-2">
+            <img src="{{ url_for('static', filename='images/thirukkural_splash.png') }}" alt="Thirukkural Water Splash" class="w-full max-h-[380px] object-contain drop-shadow-[0_0_15px_rgba(0,229,255,0.4)]">
+        </div>
+
+        <!-- Sleek Loading Bar -->
+        <div class="w-full bg-slate-800/80 rounded-full h-2 mb-6 overflow-hidden border border-cyan-500/20">
+            <div id="progress-bar" class="bg-gradient-to-r from-cyan-400 via-blue-500 to-cyan-300 h-full w-0 transition-all duration-1000 ease-linear rounded-full shadow-[0_0_10px_#00e5ff]"></div>
+        </div>
+
+        <!-- Direct Skip Link -->
+        <a href="{{ url_for('auth.login') }}" class="inline-flex items-center px-4 py-2 text-xs font-bold text-cyan-200/90 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-xl border border-cyan-500/30 transition-all shadow-sm">
+            Skip <i class="fa-solid fa-arrow-right ml-2 text-cyan-400"></i>
+        </a>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let secondsLeft = 10;
+    const totalSeconds = 10;
+    const progressBar = document.getElementById('progress-bar');
+    const loginUrl = "{{ url_for('auth.login') }}";
+
+    if (progressBar) progressBar.style.width = '0%';
+
+    const timer = setInterval(function() {
+        secondsLeft--;
+        const progressPercent = ((totalSeconds - secondsLeft) / totalSeconds) * 100;
+        
+        if (progressBar) progressBar.style.width = progressPercent + '%';
+
+        if (secondsLeft <= 0) {
+            clearInterval(timer);
+            window.location.href = loginUrl;
+        }
+    }, 1000);
+});
+</script>
+{% endblock %}

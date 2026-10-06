@@ -8,7 +8,7 @@ def seed():
         db.create_all()
 
         # Seed Zones
-        zones = ['Hostel Blocks', 'Laboratories', 'Administration Building', 'Canteen']
+        zones = ['SRM ARTS', 'SRM TRP', 'SRM IST', 'TWIN TOWER', 'BASIL RESTUARANT', 'AMBIS CAFE', 'SRM MEDICAL COLLEGE']
         for z_name in zones:
             if not Zone.query.filter_by(name=z_name).first():
                 db.session.add(Zone(name=z_name))

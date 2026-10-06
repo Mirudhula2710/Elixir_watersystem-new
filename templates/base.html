@@ -24,19 +24,19 @@
         }
     </script>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col font-sans text-gray-800">
+<body class="min-h-screen flex flex-col font-sans text-white antialiased selection:bg-cyan-500 selection:text-white">
     <!-- Navbar -->
-    <nav class="bg-brand-600 text-white shadow-lg">
+    <nav class="bg-slate-900/70 text-white shadow-2xl backdrop-blur-xl border-b border-cyan-500/20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
-                    <i class="fa-solid fa-droplet text-2xl mr-3"></i>
-                    <span class="font-bold text-xl tracking-tight">Elixir Water System</span>
+                    <i class="fa-solid fa-droplet text-2xl mr-3 text-cyan-400"></i>
+                    <span class="font-extrabold text-xl tracking-tight text-white">Elixir Water System</span>
                 </div>
                 <div class="flex items-center">
                     {% if current_user.is_authenticated %}
-                        <span class="mr-4 text-brand-100 hidden sm:inline-block">Welcome, <span class="font-bold">{{ current_user.name }}</span> ({{ current_user.role|capitalize }})</span>
-                        <a href="{{ url_for('auth.logout') }}" class="bg-brand-500 hover:bg-brand-900 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm">Logout</a>
+                        <span class="mr-4 text-cyan-100 hidden sm:inline-block">Welcome, <span class="font-bold text-white">{{ current_user.name }}</span> ({{ current_user.role|capitalize }})</span>
+                        <a href="{{ url_for('auth.logout') }}" class="bg-cyan-600/80 hover:bg-cyan-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-lg shadow-cyan-900/30 border border-cyan-400/30">Logout</a>
                     {% endif %}
                 </div>
             </div>
@@ -49,8 +49,8 @@
             {% if messages %}
                 <div class="mb-6 space-y-2">
                 {% for message in messages %}
-                    <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm flex items-center" role="alert">
-                        <i class="fa-solid fa-circle-exclamation mr-3 text-red-500 text-lg"></i>
+                    <div class="bg-red-950/60 border-l-4 border-red-500 text-red-200 p-4 rounded-xl shadow-lg backdrop-blur-md flex items-center" role="alert">
+                        <i class="fa-solid fa-circle-exclamation mr-3 text-red-400 text-lg"></i>
                         <p>{{ message }}</p>
                     </div>
                 {% endfor %}
@@ -62,10 +62,13 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-white border-t border-gray-200 mt-auto shadow-inner">
+    <footer class="bg-slate-900/60 border-t border-cyan-500/15 backdrop-blur-xl mt-auto shadow-inner">
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <p class="text-center text-sm text-gray-500">&copy; 2026 Campus Water System. All rights reserved.</p>
+            <p class="text-center text-sm text-cyan-200/80">&copy; 2026 Campus Water System. All rights reserved.</p>
         </div>
     </footer>
+
+    <!-- Pristine Deep-Water Lake Live Background Engine -->
+    <script src="{{ url_for('static', filename='js/lake-theme.js') }}"></script>
 </body>
 </html>
