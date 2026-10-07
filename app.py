@@ -5,6 +5,9 @@ from flask_login import LoginManager, login_required, current_user
 from auth import role_required
 from datetime import datetime
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def create_app():
     app = Flask(__name__)
@@ -86,6 +89,8 @@ def create_app():
         return render_template('manager.html', zones=zones, alerts=alerts, complaints=complaints, tickets=tickets, workers=workers, users=users_map)
 
     
+    from notifications import notify_worker_via_telegram
+
     @app.route('/auto_assign', methods=['POST'])
     @login_required
     @role_required('manager')
@@ -94,10 +99,14 @@ def create_app():
         workers = User.query.filter_by(role='worker').all()
         if workers and unassigned_tickets:
             import itertools
+            import time
             worker_cycle = itertools.cycle(workers)
             for ticket in unassigned_tickets:
-                ticket.assigned_worker_id = next(worker_cycle).id
+                worker = next(worker_cycle)
+                ticket.assigned_worker_id = worker.id
                 ticket.status = 'assigned'
+                notify_worker_via_telegram(worker, ticket)
+                time.sleep(0.3)
             db.session.commit()
         return redirect(url_for('manager_dashboard') + '#tab-tickets')
 
@@ -198,6 +207,7 @@ def create_app():
                 
             complaint.status = 'in_progress'
             db.session.commit()
+            notify_worker_via_telegram(worker, ticket)
         return redirect(url_for('manager_dashboard') + '#tab-complaints')
 
     @app.route('/manual_assign_complaint/<int:complaint_id>', methods=['POST'])
@@ -208,6 +218,7 @@ def create_app():
         complaint = Complaint.query.get(complaint_id)
         if complaint and worker_id and worker_id.strip():
             w_id = int(worker_id)
+            worker = User.query.get(w_id)
             ticket = Ticket.query.filter_by(complaint_id=complaint.id).first()
             if not ticket:
                 ticket = Ticket(
@@ -223,6 +234,8 @@ def create_app():
                 
             complaint.status = 'in_progress'
             db.session.commit()
+            if worker:
+                notify_worker_via_telegram(worker, ticket)
         return redirect(url_for('manager_dashboard') + '#tab-complaints')
 
     @app.route('/assign_ticket/<int:ticket_id>', methods=['POST'])
@@ -233,16 +246,21 @@ def create_app():
         ticket = Ticket.query.get(ticket_id)
         if ticket:
             if worker_id and worker_id.strip():
-                ticket.assigned_worker_id = int(worker_id)
+                w_id = int(worker_id)
+                worker = User.query.get(w_id)
+                ticket.assigned_worker_id = w_id
                 ticket.status = 'assigned'
                 if ticket.complaint:
                     ticket.complaint.status = 'in_progress'
+                db.session.commit()
+                if worker:
+                    notify_worker_via_telegram(worker, ticket)
             else:
                 ticket.assigned_worker_id = None
                 ticket.status = 'unassigned'
                 if ticket.complaint:
                     ticket.complaint.status = 'open'
-            db.session.commit()
+                db.session.commit()
         return redirect(url_for('manager_dashboard') + '#tab-tickets')
 
     return app

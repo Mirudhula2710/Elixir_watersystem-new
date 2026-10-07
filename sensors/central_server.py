@@ -119,10 +119,12 @@ def zone_worker(zone_name, queue):
                     db.session.commit()
                     
                     try:
-                        explanation = explain_alert(zone_name, final_severity, deviation)
-                        alert.gemini_explanation = explanation
+                        exp_en, exp_ta = explain_alert(zone_name, final_severity, deviation)
+                        alert.gemini_explanation = exp_en
+                        alert.gemini_explanation_ta = exp_ta
                     except Exception as e:
                         alert.gemini_explanation = f"Error generating explanation: {e}"
+                        alert.gemini_explanation_ta = f"விளக்கம் உருவாக்கத்தில் பிழை: {e}"
                         
                     if final_severity == "Critical":
                         print(f"*** CRITICAL ALERT in {zone_name} *** Simulated Valve Shutoff executed.")

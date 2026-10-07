@@ -11,6 +11,9 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     role = db.Column(db.String(20), nullable=False) # manager, worker, student
     name = db.Column(db.String(64), nullable=False)
+    phone_number = db.Column(db.String(20), nullable=True)
+    telegram_chat_id = db.Column(db.String(64), nullable=True)
+    preferred_language = db.Column(db.String(10), default='ta') # ta (Tamil), hi (Hindi), en (English)
 
 class Zone(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -32,6 +35,7 @@ class Alert(db.Model):
     severity = db.Column(db.String(50), nullable=False) # Normal, Warning, Suspected Leak, Critical
     deviation = db.Column(db.Float, nullable=False)
     gemini_explanation = db.Column(db.Text, nullable=True)
+    gemini_explanation_ta = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='open') # open, assigned, resolved
 

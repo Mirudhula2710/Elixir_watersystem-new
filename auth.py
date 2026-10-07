@@ -11,7 +11,8 @@ def role_required(role):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated or current_user.role != role:
-                return "Forbidden", 403
+                flash(f"Please log in with a {role.capitalize()} account to access that page.")
+                return redirect(url_for('auth.login'))
             return f(*args, **kwargs)
         return decorated_function
     return decorator
